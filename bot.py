@@ -2,7 +2,7 @@ import os
 import logging
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import Application, CommandHandler, CallbackQueryHandler, ContextTypes
-from flask import Flask, request
+from flask import Flask
 import threading
 import asyncio
 
@@ -90,9 +90,9 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
 def run_flask():
     """Run Flask app for health checks."""
     port = int(os.environ.get("PORT", 5000))
-    app.run(host="0.0.0.0", port=port, debug=False)
+    app.run(host="0.0.0.0", port=port, debug=False, use_reloader=False)
 
-def run_bot():
+async def run_bot_async():
     """Create and run the bot application with polling."""
     # Create the Application
     application = Application.builder().token(TOKEN).build()
@@ -105,7 +105,27 @@ def run_bot():
     
     # Start the bot with polling
     logger.info("Starting bot with polling...")
-    application.run_polling(allowed_updates=Update.ALL_TYPES)
+    await application.initialize()
+    await application.start()
+    await application.updater.start_polling()
+    
+    # Keep the bot running
+    try:
+        while True:
+            await asyncio.sleep(1)
+    except KeyboardInterrupt:
+        logger.info("Bot stopped by user")
+    finally:
+        await application.stop()
+
+def start_bot():
+    """Start the bot in a new event loop."""
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
+    try:
+        loop.run_until_complete(run_bot_async())
+    finally:
+        loop.close()
 
 if __name__ == "__main__":
     # Run Flask in a separate thread
@@ -113,11 +133,9 @@ if __name__ == "__main__":
     flask_thread.daemon = True
     flask_thread.start()
     
-    # Run the bot (this will block)
+    # Run the bot
     try:
-        run_bot()
-    except KeyboardInterrupt:
-        logger.info("Bot stopped by user")
+        start_bot()
     except Exception as e:
         logger.error(f"Bot crashed: {e}")
         raise
