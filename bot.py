@@ -3,12 +3,13 @@ import logging
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import Application, CommandHandler, CallbackQueryHandler, ContextTypes
 from flask import Flask, request
-import asyncio
 import threading
+import asyncio
 
 # Enable logging
 logging.basicConfig(
-    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s", level=logging.INFO
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s", 
+    level=logging.INFO
 )
 logger = logging.getLogger(__name__)
 
@@ -86,7 +87,11 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
             "🔄 I stay alive with UptimeRobot pinging me every 5 minutes."
         )
 
-# Main bot application
+def run_flask():
+    """Run Flask app for health checks."""
+    port = int(os.environ.get("PORT", 5000))
+    app.run(host="0.0.0.0", port=port, debug=False)
+
 def run_bot():
     """Create and run the bot application with polling."""
     # Create the Application
@@ -102,21 +107,13 @@ def run_bot():
     logger.info("Starting bot with polling...")
     application.run_polling(allowed_updates=Update.ALL_TYPES)
 
-def run_flask():
-    """Run Flask app for health checks."""
-    port = int(os.environ.get("PORT", 5000))
-    app.run(host="0.0.0.0", port=port)
-
 if __name__ == "__main__":
-    # Get the port for web server
-    port = int(os.environ.get("PORT", 5000))
-    
     # Run Flask in a separate thread
     flask_thread = threading.Thread(target=run_flask)
     flask_thread.daemon = True
     flask_thread.start()
     
-    # Run the bot
+    # Run the bot (this will block)
     try:
         run_bot()
     except KeyboardInterrupt:
